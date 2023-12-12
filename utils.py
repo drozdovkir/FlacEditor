@@ -1,4 +1,17 @@
 import re
+import imageio.v3 as iio
+
+def read_image(source):
+    img = iio.imread(source)
+    img_type = 3
+    img_MIME_string = ""
+    img_desc_string = ""
+    img_width = img.shape[0]
+    img_height = img.shape[1]
+    img_color_depth = img.shape[2]
+    img_color_number = 0
+
+    return (img_type, img_MIME_string, img_desc_string, img_width, img_height, img_color_depth, img_color_number)
 
 def strip_class_name(cls_name):
     result = re.search("MD[^>']*", cls_name) # leave everything that starts with MD

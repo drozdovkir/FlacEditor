@@ -9,6 +9,7 @@ class MDBlockPadding(MDDescriptionTree):
 
     def add_content(self, space):
         self.space = space
+        self.is_padding = True
 
     def change_description(self, l_diff):
         if l_diff == 0:

@@ -33,17 +33,28 @@ class MDBlockVorbisComment(MDDescriptionTree):
     
     def check_for_change(self, field, new_value):
         old_value = self.comments.get(field)
+        
+        new_length = old_length = len(field) + 5
 
         if old_value is None:
-            return len(new_value) + 4
+            old_length = 0
+        else:
+            old_length += len(old_value.value)
         
-        old_value = old_value.value
+        if new_value is None:
+            new_length = 0
+        else:
+            new_length += len(new_value)
         
-        return len(new_value) - len(old_value)
+        return new_length - old_length
     
-    def change_description(self, field, new_value, padding_index, l_diff, dir_):
+    def change_description(self, field, new_value, l_diff):
+        if new_value is None:
+            changes = self.remove_comment_node(field, l_diff)
+            return changes
+        
         if field not in self.comments.keys():
-            changes = self.create_comment_node(field, new_value, padding_index, l_diff, dir_)
+            changes = self.create_comment_node(field, new_value, l_diff)
             return changes
         
         self.comments[field] = VorbisCommentInfo(new_value, 
@@ -57,6 +68,8 @@ class MDBlockVorbisComment(MDDescriptionTree):
         
         if l_diff != 0:
             s, l = self.comments[field].node.get_range()
+            padding_index = self.parent.padding_block_idx
+            dir_ = 1 if padding_index > self.parent.vorbis_block_idx else -1
             if dir_ == 1:
                 s0 = s + l
                 f0 = self.parent.entries[padding_index].entries[1].get_range()[0] - 1 # shit
@@ -66,7 +79,7 @@ class MDBlockVorbisComment(MDDescriptionTree):
                 
             local_changes.append((s0, f0, l_diff, dir_))           # shift bytes
 
-            self.comments[field].node.change_length(padding_index, l_diff, dir_)
+            self.comments[field].node.change_length(l_diff)
 
             s2, l2 = self.comments[field].length_node.get_range()
             local_changes.append((s2, l2, len(new_string), "le"))  # rewrite length of the comment
@@ -80,12 +93,15 @@ class MDBlockVorbisComment(MDDescriptionTree):
 
         return local_changes
     
-    def create_comment_node(self, field, value, padding_index, l_diff, dir_):
-        new_string = field + "=" + value
+    def create_comment_node(self, field, value, l_diff):
+        print(l_diff)
+        new_value = field + "=" + value
 
         local_changes = []
 
-        s, l = self.entries[1].entries[-1].get_range()
+        s, l = self.list_length_field.get_range()
+        padding_index = self.parent.padding_block_idx
+        dir_ = 1 if padding_index > self.parent.vorbis_block_idx else -1
         if dir_ == 1:
             s0 = s + l
             f0 = self.parent.entries[padding_index].entries[1].get_range()[0] - 1 # shit
@@ -94,39 +110,58 @@ class MDBlockVorbisComment(MDDescriptionTree):
             f0 = self.parent.entries[padding_index + 1].get_range()[0] # even more shit
         local_changes.append((s0, f0, l_diff, dir_)) # shift bytes
         
-        length = MDDescriptionTree(length=4)
-        local_changes.append((s + l, 4, len(new_string), "le")) # add length of comment
-
-        comment = MDDescriptionTree(length=len(new_string))
-        local_changes.append((s + l + 4, len(new_string), new_string, "s")) # add comment
-
         node = self.list_length_field
+
+        length = MDDescriptionTree(length=4)
+        comment = MDDescriptionTree(length=len(new_value))
 
         node.insert_node(comment)
         node.insert_node(length)
 
-        s1, l1 = node.get_range()
-        local_changes.append(s1, l1, len(self.comments.keys()) + 1, "le") # change number of comments
+        self.comments[field] = VorbisCommentInfo(value, comment, length)
+        
+        s1, l1 = length.get_range()
+        local_changes.append((s1, l1, len(new_value), "le")) # add length of comment
 
-        s2, l2 = self.entries[0].entries[1].get_range()
-        new_block_length = self.entries[1].length + len(new_string)
-        local_changes.append((s2, l2, new_block_length, "be")) # change block length
+        s2, l2 = comment.get_range()
+        local_changes.append((s2, l2, new_value, "s")) # add comment
+
+        s3, l3 = node.get_range()
+        local_changes.append((s3, l3, len(self.comments.keys()), "le")) # change number of comments
+
+        s4, l4 = self.entries[0].entries[1].get_range()
+        new_block_length = self.entries[1].length + len(new_value)
+        local_changes.append((s4, l4, new_block_length, "be")) # change block length
 
         return local_changes
 
-    def remove_comment_node(self, field, padding_index, dir_):
+    def remove_comment_node(self, field, l_diff):
+        if field not in self.comments.keys():
+            return [0, 1, 0, 1] # basically do nothing change to distinguish this situation
+                                # from that of inability to make a change
         node = self.comments[field].node
         length_node = self.comments[field].length_node
-        
-        node.change_length(padding_index, -node.length, dir_)
-        length_node.change_length(padding_index, -length_node.length, dir_)
+
+        self.comments.pop(field)
 
         local_changes = []
+
+        s1, l1 = length_node.get_range()
+        _, l2 = node.get_range()
+        padding_index = self.parent.padding_block_idx
+        dir_ = 1 if padding_index > self.parent.vorbis_block_idx else -1
+        if dir_ == 1:
+            s0 = s1 + l1 + l2
+            f0 = self.parent.entries[padding_index].entries[1].get_range()[0] - 1 # shit
+        else:
+            s0 = s1 - 1
+            f0 = self.parent.entries[padding_index + 1].get_range()[0] # even more shit
+        local_changes.append((s0, f0, l_diff, dir_)) # shift bytes
 
         node.remove_node()
         length_node.remove_node()
 
-        local_changes.append(()) # shift bytes
-        local_changes.append(()) # change number of comments
+        s, l = self.list_length_field.get_range()
+        local_changes.append((s, l, len(self.comments.keys()), "le")) # change number of comments
 
         return local_changes

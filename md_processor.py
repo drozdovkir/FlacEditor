@@ -44,6 +44,8 @@ def write_content(track_bytes, index, length_, content, content_type):
     i = index + length_
 
 def shift_bytes(track_bytes, start, finish, step, dir_):
+    if step == 0:
+        return
     if dir_ * step > 0:
         for i in range(finish, start - dir_, -1):
             track_bytes[i + step*dir_] = track_bytes[i]
@@ -140,7 +142,7 @@ def process_md_block_image(track, length):
     desc_8, tb, img_color_depth = read_content(track, 4, "be")
     track_bytes += tb
 
-    desc_9, tb, _ = read_content(track, 4, "be")
+    desc_9, tb, img_color_number = read_content(track, 4, "be")
     track_bytes += tb
 
     desc_10, tb, img_size = read_content(track, 4, "be")
@@ -149,7 +151,7 @@ def process_md_block_image(track, length):
     desc_11, tb, _ = read_content(track, img_size)
     track_bytes += tb
 
-    img_attrs = (img_type, MIME_string, desc_string, img_width, img_height, img_color_depth)
+    img_attrs = (img_type, MIME_string, desc_string, img_width, img_height, img_color_depth, img_color_number)
 
     desc.add_child(desc_1)
     desc.add_child(desc_2)
@@ -225,3 +227,8 @@ def process_md(track):
             break
     
     return md_desc, track_bytes
+
+if __name__ == "__main__":
+    a = [3, 4, 5]
+    a.insert(3, 11)
+    print(a)

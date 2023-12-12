@@ -20,30 +20,50 @@ class TrackEditor:
     
     def _change_bytes(self, changes):
         for change in changes:
+            print(change)
             if change[3] == 1 or change[3] == -1:
                 shift_bytes(self.track_contents, *change)
             else:
                 write_content(self.track_contents, *change)
 
+    # for debugging
     def _look_bytes(self, start, finish):
-        #self.track_handler.seek(start)
-        #b1 = bytearray(self.track_handler.read(finish - start))
         b2 = self.track_contents[start:finish]
-        # print(b1)
         print(b2)
-        # print(b1 == b2)
-        #self.track_handler.seek(0)
 
+    # for debugging
     def _look_block(self, index):
         s, l = self.md_description.entries[index].get_range()
         self._look_bytes(s, s + l)
 
+    # for debugging
+    def _check_correctness(self, blocks):
+        if not self.md_description._check_correctness():
+            print("metadata description tree is not correct")
+        
+        new_blocks = self._make_snapshot()
+
+        for i, block in enumerate(blocks):
+            print(str(i) + ": " + str(block == new_blocks[i]))
+
+    # for debugging
+    def _make_snapshot(self):
+        result = []
+        for block in self.md_description.entries:
+            s, l = block.get_range()
+            result.append(self.track_contents[s:s+l])
+        return result
+
     def edit_field(self, field, new_value):
+        blocks = self._make_snapshot()
+
         changes = self.md_description.change_description(field, new_value)
         if len(changes) == 0:
             print("requested change cannot be performed")
             return
         self._change_bytes(changes)
+
+        #self._check_correctness(blocks)
     
     def show_description(self):
         print(self.md_description)
@@ -68,5 +88,16 @@ class TrackEditor:
         if exc_type is not None:
             print(exc_type)
             print(exc_value)
+            print(exc_tb)
         self.track_handler.close()
         return True
+
+if __name__ == "__main__":
+    with TrackEditor("Funeralopolis.flac") as te:
+        te.show_description()
+        print("\n\n")
+
+        te.edit_field("cover", None)
+        print("\n\n")
+
+        te.show_description()

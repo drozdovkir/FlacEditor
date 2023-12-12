@@ -21,6 +21,9 @@ class MD(MDDescriptionTree):
                 if self.img_block_idx == -1:
                     changes = self.create_image_block(new_value)
                     return changes
+                if new_value is None:
+                    changes = self.remove_image_block()
+                    return changes
                 idx = self.img_block_idx
             case _:
                 idx = self.vorbis_block_idx
@@ -30,16 +33,11 @@ class MD(MDDescriptionTree):
 
         if l_diff > available_space:
             return []
-        
-        if idx < self.padding_block_idx:
-            dir_ = 1
-        else:
-            dir_ = -1
 
         # changing the value of the field in the description should go first
         # so all start and length attributes have consistent values
         # and first change is byteshift
-        changes1 = self.entries[idx].change_description(field, new_value, self.padding_block_idx, l_diff, dir_)    
+        changes1 = self.entries[idx].change_description(field, new_value, l_diff)    
         changes2 = self.entries[self.padding_block_idx].change_description(l_diff)
 
         return changes1 + changes2
@@ -139,3 +137,32 @@ class MD(MDDescriptionTree):
         # changes += self.entries[self.padding_block_idx].change_description(l_diff)
 
         # return changes
+
+    def remove_image_block(self):
+        s, l = self.entries[self.img_block_idx].get_range()
+        changes = []
+        padding_index = self.padding_block_idx
+        dir_ = 1 if padding_index > self.img_block_idx else -1
+        if dir_ == 1:
+            s0 = s + l
+            f0 = self.entries[padding_index].entries[1].get_range()[0] - 1 # shit
+        else:
+            s0 = s - 1
+            f0 = self.entries[padding_index + 1].get_range()[0] # even more shit
+                
+        changes.append((s0, f0, -l, dir_)) # shift bytes
+
+        self.entries[self.img_block_idx].remove_node()
+
+        # pls kill me
+        if self.img_block_idx < self.padding_block_idx:
+            self.padding_block_idx -= 1
+        if self.img_block_idx < self.vorbis_block_idx:
+            self.vorbis_block_idx -= 1
+
+        changes += self.entries[self.padding_block_idx].change_description(-l)
+
+        self.img_block_idx = -1
+
+        print("done")
+        return changes
