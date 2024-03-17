@@ -1,4 +1,11 @@
-from md_description import *
+from md_description import MDDescriptionTree, MDBlockApplication, MDBlockCuesheet, MDBlockSeekTable, MDBlockStreamInfo, MDBlockHeader, MDBlockData
+from md import MD
+from md_padding import MDBlockPadding
+from md_vorbis import MDBlockVorbisComment
+from md_image import MDBlockImage
+
+import ui
+
 
 def test_tree(number):
     match number:
@@ -69,7 +76,7 @@ def test_tree(number):
             padding_block.add_child(head)
             padding_block.add_child(body)
 
-            padding_block.space = 1000
+            padding_block.add_content(1000)
 
             tree.add_child(padding_block)
 
@@ -111,11 +118,11 @@ def test_tree(number):
             padding_block.add_child(head)
             padding_block.add_child(body)
 
-            padding_block.space = 1000
+            padding_block.add_content(1000)
 
             tree.add_child(padding_block)
 
-            pic_block = MDBlockPicture()
+            pic_block = MDBlockImage()
             head = MDBlockHeader()
             a = MDDescriptionTree(length=1)
             b = MDDescriptionTree(length=3)
@@ -164,10 +171,28 @@ def test_tree(number):
 
             tree.padding_block_idx = 2
             tree.vorbis_block_idx = 4
+            tree.img_block_idx = 3
     
     return tree
 
 if __name__ == "__main__":
-    b = bytearray("haha", encoding="utf-8")
+    tracks = ["hahaahahahhahahahahahahahahhahahahahahahhahahahahahahahahahhahahahahahahahahah.flac", 
+              "wow.flac", "opa.flac", "xd.flac",
+               "lolololololollolololololololololololololollololololololollolololololollolololol.flac", 
+               "bbbb.flac", "lol.flac", "bestsong.flac", "t.flac",
+              "hello.flac", "g.flac", "ggg.flac"]
+    
+    picked = [False for _ in tracks]
 
-    print(b)
+    metadata = {"ARTIST": "me", "ALBUM": "nice", "GENRE": "rock", "YEAR": "1995", "STUDIO": "garage", "LICENSE": "emmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm"}
+
+    ui.create_layout()
+
+    track_index = 0
+
+    while True:
+        key = ui.read_key()
+        b = ui.process_key(key)
+
+        if b != 0:
+            break

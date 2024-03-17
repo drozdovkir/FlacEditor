@@ -151,7 +151,13 @@ def process_md_block_image(track, length):
     desc_11, tb, _ = read_content(track, img_size)
     track_bytes += tb
 
-    img_attrs = (img_type, MIME_string, desc_string, img_width, img_height, img_color_depth, img_color_number)
+    img_attrs = {"type": img_type, 
+                 "MIME_string": MIME_string, 
+                 "description_string": desc_string, 
+                 "width": img_width, 
+                 "height": img_height, 
+                 "color_depth": img_color_depth, 
+                 "color_number": img_color_number}
 
     desc.add_child(desc_1)
     desc.add_child(desc_2)

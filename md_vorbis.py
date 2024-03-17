@@ -16,20 +16,16 @@ class MDBlockVorbisComment(MDDescriptionTree):
         for comment in comments:
             field, value = comment.split('=')
             comment_info = VorbisCommentInfo(value, self.entries[1].entries[i + 1], self.entries[1].entries[i])
-            self.comments[field] = comment_info
+            self.comments[field.upper()] = comment_info
             i += 2
         
         self.list_length_field = self.entries[1].entries[2]
     
     def get_comment(self, *comments):
         if comments == ():
-            return self.comments
+            return {field : info.value for field, info in self.comments.items()}
         
-        result = {}
-        for comment_field in comments:
-            result[comment_field] = self.comments.get(comment_field)
-        
-        return result
+        return {field : (self.comments.get(field).value if field in self.comments.keys() else None) for field in comments}
     
     def check_for_change(self, field, new_value):
         old_value = self.comments.get(field)
@@ -57,6 +53,9 @@ class MDBlockVorbisComment(MDDescriptionTree):
             changes = self.create_comment_node(field, new_value, l_diff)
             return changes
         
+        if new_value == self.comments[field].value:
+            return []
+        
         self.comments[field] = VorbisCommentInfo(new_value, 
                                                        self.comments[field].node, 
                                                        self.comments[field].length_node)
@@ -67,16 +66,7 @@ class MDBlockVorbisComment(MDDescriptionTree):
         local_changes = []
         
         if l_diff != 0:
-            s, l = self.comments[field].node.get_range()
-            padding_index = self.parent.padding_block_idx
-            dir_ = 1 if padding_index > self.parent.vorbis_block_idx else -1
-            if dir_ == 1:
-                s0 = s + l
-                f0 = self.parent.entries[padding_index].entries[1].get_range()[0] - 1 # shit
-            else:
-                s0 = s - 1
-                f0 = self.parent.entries[padding_index + 1].get_range()[0] # even more shit
-                
+            s0, f0, dir_ = self.comments[field].node.get_orientation()  
             local_changes.append((s0, f0, l_diff, dir_))           # shift bytes
 
             self.comments[field].node.change_length(l_diff)
@@ -94,20 +84,11 @@ class MDBlockVorbisComment(MDDescriptionTree):
         return local_changes
     
     def create_comment_node(self, field, value, l_diff):
-        print(l_diff)
         new_value = field + "=" + value
 
         local_changes = []
 
-        s, l = self.list_length_field.get_range()
-        padding_index = self.parent.padding_block_idx
-        dir_ = 1 if padding_index > self.parent.vorbis_block_idx else -1
-        if dir_ == 1:
-            s0 = s + l
-            f0 = self.parent.entries[padding_index].entries[1].get_range()[0] - 1 # shit
-        else:
-            s0 = s - 1
-            f0 = self.parent.entries[padding_index + 1].get_range()[0] # even more shit
+        s0, f0, dir_ = self.list_length_field.get_orientation()
         local_changes.append((s0, f0, l_diff, dir_)) # shift bytes
         
         node = self.list_length_field
@@ -115,6 +96,7 @@ class MDBlockVorbisComment(MDDescriptionTree):
         length = MDDescriptionTree(length=4)
         comment = MDDescriptionTree(length=len(new_value))
 
+        # the order matters
         node.insert_node(comment)
         node.insert_node(length)
 
@@ -137,7 +119,7 @@ class MDBlockVorbisComment(MDDescriptionTree):
 
     def remove_comment_node(self, field, l_diff):
         if field not in self.comments.keys():
-            return [0, 1, 0, 1] # basically do nothing change to distinguish this situation
+            return [(0, 1, 0, 1),] # basically 'do nothing' change to distinguish this situation
                                 # from that of inability to make a change
         node = self.comments[field].node
         length_node = self.comments[field].length_node
@@ -146,16 +128,12 @@ class MDBlockVorbisComment(MDDescriptionTree):
 
         local_changes = []
 
-        s1, l1 = length_node.get_range()
+        s0, f0, dir_ = length_node.get_orientation()
         _, l2 = node.get_range()
-        padding_index = self.parent.padding_block_idx
-        dir_ = 1 if padding_index > self.parent.vorbis_block_idx else -1
+
         if dir_ == 1:
-            s0 = s1 + l1 + l2
-            f0 = self.parent.entries[padding_index].entries[1].get_range()[0] - 1 # shit
-        else:
-            s0 = s1 - 1
-            f0 = self.parent.entries[padding_index + 1].get_range()[0] # even more shit
+            f += l2
+
         local_changes.append((s0, f0, l_diff, dir_)) # shift bytes
 
         node.remove_node()

@@ -95,10 +95,37 @@ class MDDescriptionTree:
 
     def remove_node(self):
         p_node = self.parent
-
         self.change_length(-self.length)
-
         p_node.entries.remove(self)
+
+    def get_orientation(self):
+        cur_node = self
+        prev_node = None
+
+        global_start = 0
+
+        while cur_node.parent is not None:
+            global_start += cur_node.start
+
+            prev_node = cur_node
+            cur_node = cur_node.parent
+
+        # THIS WORKS SOMEHOW, DO NOT TOUCH
+        dir_ = 1
+        padding_index = -1
+        for i, node in enumerate(cur_node.entries):
+            if node.is_padding:
+                dir_ *= dir_
+                padding_index = i
+            if node == prev_node:
+                dir_ *= -1
+
+        pb = self.entries[padding_index]
+
+        s = global_start + self.length if dir_ == 1 else global_start - 1
+        f = pb.start + pb.entries[1].start - 1 if dir_ == 1 else self.entries[padding_index + 1].start
+        
+        return s, f, dir_
 
     def get_range(self):
         global_start = 0

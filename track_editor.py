@@ -1,5 +1,4 @@
-from md_processor import process_md, write_content, shift_bytes
-import imageio as iio
+from md_processor import process_md, write_content, shift_bytes, read_image
 
 
 class TrackEditor:
@@ -9,18 +8,19 @@ class TrackEditor:
         self.track_contents = None
         self.md_description = None
 
-    def __enter__(self):
         self.track_handler = open(self.track_path, "r+b")
-
         self.md_description, self.track_contents = process_md(self.track_handler)
+        self.track_handler.close()
 
-        self.track_handler.seek(0)
-
-        return self
+    @property
+    def comments(self):
+        return self.md_description.get_comment()
+    
+    def space(self):
+        return self.md_description.get_available_space()
     
     def _change_bytes(self, changes):
         for change in changes:
-            print(change)
             if change[3] == 1 or change[3] == -1:
                 shift_bytes(self.track_contents, *change)
             else:
@@ -55,9 +55,12 @@ class TrackEditor:
         return result
 
     def edit_field(self, field, new_value):
-        blocks = self._make_snapshot()
+        # blocks = self._make_snapshot()
 
-        changes = self.md_description.change_description(field, new_value)
+        if field == "cover":
+            new_value = read_image(new_value)
+
+        changes = self.md_description.change_description(field.upper(), new_value)
         if len(changes) == 0:
             print("requested change cannot be performed")
             return
@@ -68,13 +71,14 @@ class TrackEditor:
     def show_description(self):
         print(self.md_description)
 
-    def print_comments(self, *comments):
-        comments = self.md_description.get_comment(*comments)
+    def print_comments(self, *fields):
+        fields = tuple(map(lambda elem: elem.upper(), fields))
+        comments = self.md_description.get_comment(*fields)
         
         for comment, comment_value in comments.items():
             print(comment + ": ", end='')
             if comment_value is not None:
-                print(comment_value.value)
+                print(comment_value)
             else:
                 print("is not in metadata")
 
@@ -97,7 +101,8 @@ if __name__ == "__main__":
         te.show_description()
         print("\n\n")
 
-        te.edit_field("cover", None)
+        te.print_comments("artist", "album", "haha")
         print("\n\n")
+        te.edit_field("haha", "opa")
 
-        te.show_description()
+        te.print_comments("artist", "album", "haha")

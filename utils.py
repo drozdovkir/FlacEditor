@@ -3,15 +3,16 @@ import imageio.v3 as iio
 
 def read_image(source):
     img = iio.imread(source)
-    img_type = 3
-    img_MIME_string = ""
-    img_desc_string = ""
-    img_width = img.shape[0]
-    img_height = img.shape[1]
-    img_color_depth = img.shape[2]
-    img_color_number = 0
 
-    return (img_type, img_MIME_string, img_desc_string, img_width, img_height, img_color_depth, img_color_number)
+    img_attrs = {"type": 3,
+                 "MIME_string": "",
+                 "description_string": "",
+                 "width": img.shape[0],
+                 "height": img.shape[1],
+                 "color_depth": img.shape[2],
+                 "color_number": 0}
+
+    return (img_attrs, img)
 
 def strip_class_name(cls_name):
     result = re.search("MD[^>']*", cls_name) # leave everything that starts with MD
@@ -37,7 +38,31 @@ def resolve(data_):
 
     return block_type, is_last
 
+def compare_strings(s1: str, s2: str):
+    while (i < len(s1)) and (i < len(s2)):
+        if s1[i] != s2[i]:
+            return i
+        i += 1
+    return len(s1)
+
+def fuse_dicts(d1: dict, d2: dict):
+    for key in d2:
+        v2 = d2[key]
+        if key in d1:
+            v1 = d1[key]
+            if isinstance(v1, list):
+                v1.append(v2)
+            elif v1 != v2:
+                d1[key] = [v1, v2]
+        else:
+            d1[key] = v2
+    
+    return d1
+
 if __name__ == "__main__":
-    for i in range(10, 5, -1):
-        print(i)
+    d1 = {"ARTIST": "me", "GENRE": "wow"}
+    d2 = {"ALBUM": "opa", "ARTIST": "me", "GENRE": "xd"}
+    d3 = {"GENRE": "rock"}
+
+    print(fuse_dicts(fuse_dicts(d1, d2), d3))
 
